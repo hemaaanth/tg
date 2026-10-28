@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "users": [
+    {
+      "id": 123456789,
+      "accessHash": "-4242424242424242424",
+      "note": "why this person is denied (root-only file)",
+      "redact": ["First Last", "@username", "username"]
+    }
+  ],
+  "chats": [-1001234567890],
+  "allowChats": []
+}

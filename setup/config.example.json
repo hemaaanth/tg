@@ -1,0 +1,11 @@
+{
+  "apiId": 1234567,
+  "apiHash": "0123456789abcdef0123456789abcdef",
+  "readOnly": false,
+  "allowSend": false,
+  "dailySendCap": 20,
+  "workUser": null,
+  "workTitle": null,
+  "allowWorkInvite": false,
+  "dailyWorkInviteCap": 0
+}

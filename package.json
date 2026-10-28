@@ -1,0 +1,29 @@
+{
+  "name": "tg",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Telegram CLI for agents, with a denylist that hides chosen people and their groups (built on mtcute)",
+  "license": "MIT",
+  "repository": "github:hemaaanth/tg",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsdown && node scripts/check-bundle.mjs",
+    "check": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fuman/node": "0.0.21",
+    "@fuman/utils": "0.0.21",
+    "@mtcute/core": "0.32.3",
+    "@mtcute/wasm": "0.32.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsdown": "^0.21.8",
+    "typescript": "^6.0.2",
+    "vitest": "^4.0.0"
+  }
+}

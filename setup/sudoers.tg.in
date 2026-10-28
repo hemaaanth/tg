@@ -1,0 +1,4 @@
+# tg: @AGENT_USER@ may run the tg CLI as the tg user. Nothing else.
+# The environment is reset and cannot be overridden (no SETENV, no -E).
+Defaults>tg env_reset, !env_keep, always_set_home, !setenv
+@AGENT_USER@ ALL=(tg) NOPASSWD: /usr/bin/node /usr/local/lib/tg/cli.mjs *

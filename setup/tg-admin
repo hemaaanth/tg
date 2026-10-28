@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# tg admin command. Root only. Installed as /usr/local/sbin/tg-admin.
+#
+#   tg-admin login                         log in (needs a terminal)
+#   tg-admin deny-add <id>... [--note t]   deny users by numeric id
+#   tg-admin deny-remove <id>...           stop denying users
+#   tg-admin deny-chat <markedId>...       always deny a chat
+#   tg-admin status                        CLI status (JSON)
+#   tg-admin logout                        delete the local session
+#
+# The admin program runs as tg. It prints the new denylist; this
+# script (root) installs it. tg can read the denylist, never write it.
+set -euo pipefail
+umask 077
+
+LIB=/usr/local/lib/tg
+ETC=/etc/tg
+VAR=/var/lib/tg
+
+die() { echo "tg-admin: $*" >&2; exit 1; }
+[[ $EUID -eq 0 ]] || die "run as root: sudo tg-admin $*"
+
+as_tg() {
+  runuser -u tg -- env -i HOME="$VAR" PATH=/usr/bin:/bin LANG=C.UTF-8 /usr/bin/node "$@"
+}
+
+install_denylist() {
+  local tmp="$1"
+  /usr/bin/node -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); if(d.version!==1||!Array.isArray(d.users)) process.exit(1)' "$tmp" \
+    || die "admin program returned an invalid denylist; nothing changed"
+  cp -p "$ETC/denylist.json" "$ETC/denylist.json.bak"
+  install -o root -g tg -m 0640 "$tmp" "$ETC/denylist.json.new"
+  mv -f "$ETC/denylist.json.new" "$ETC/denylist.json"
+  chmod 0600 "$ETC/denylist.json.bak"
+  echo "tg-admin: denylist updated ($(grep -c '"id"' "$ETC/denylist.json") user entries). Backup: $ETC/denylist.json.bak (root only)."
+}
+
+edit_denylist() {
+  local tmp
+  tmp="$(mktemp)"
+  trap 'rm -f "$tmp"' RETURN
+  # stdout (the new list, with names) goes only to the root-owned temp file.
+  as_tg "$LIB/admin.mjs" "$@" > "$tmp"
+  install_denylist "$tmp"
+}
+
+verb="${1:-}"
+[[ $# -gt 0 ]] && shift
+case "$verb" in
+  login)
+    [[ -t 0 && -t 2 ]] || die "login needs an interactive terminal"
+    as_tg "$LIB/admin.mjs" login
+    ;;
+  deny-add)     edit_denylist deny-lookup "$@" ;;
+  deny-remove)  edit_denylist deny-remove "$@" ;;
+  deny-chat)    edit_denylist deny-chat "$@" ;;
+  status)       as_tg "$LIB/cli.mjs" status ;;
+  logout)
+    rm -f "$VAR/telegram.session" "$VAR/telegram.session-journal"
+    echo "tg-admin: local session deleted."
+    echo "Now end it in Telegram too: Settings > Devices > tg > Terminate."
+    ;;
+  *)
+    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+    exit 2
+    ;;
+esac
