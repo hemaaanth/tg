@@ -71,7 +71,7 @@ async function login(deps: AdminDeps): Promise<void> {
   })
   try {
     if (session.selfId !== null) {
-      deps.prompt.say('Already logged in. Delete the session file to log in again.')
+      deps.prompt.say('A local session already exists. Run `sudo tg-admin logout`, then `sudo tg-admin login` again.')
       return
     }
     const tg = session.tg

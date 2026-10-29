@@ -97,6 +97,7 @@ sudo tg-admin deny-remove 123456789
 sudo tg-admin deny-chat -1001234567890   # always deny a chat (marked id)
 sudo tg-admin status
 sudo tg-admin logout                     # then end the session in the app
+sudo tg-admin login                      # create a new session after logout
 ```
 
 `tg` keeps no copy of chats, but the tools that call it may. After a
