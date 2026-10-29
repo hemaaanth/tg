@@ -47,6 +47,11 @@ cli.mjs work-audit
 cli.mjs invite-work-user <chatId>
 ```
 
+`status` is a local, network-free readiness check. Its `loggedIn` field means
+the session file contains a cached account. Use `whoami` when you need to prove
+that Telegram still accepts the session. A revoked session can pass `status`
+and fail `whoami` with `AUTH_KEY_UNREGISTERED`.
+
 Chat ids are "marked": a user is `id`, a basic group is `-id`, a supergroup
 is `-1000000000000 - id`.
 

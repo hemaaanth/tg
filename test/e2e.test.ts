@@ -847,6 +847,15 @@ describe('admin', () => {
     expect(env.fake.methods()).toEqual(['auth.sendCode', 'auth.signIn'])
   })
 
+  it('points an existing local session at the supported re-login commands', async () => {
+    const env = await loggedInEnv()
+    env.fake.calls.length = 0
+    const r = await admin(env, [], 'login')
+    expect(r.code).toBe(0)
+    expect(r.said).toEqual(['A local session already exists. Run `sudo tg-admin logout`, then `sudo tg-admin login` again.'])
+    expect(env.fake.calls).toEqual([])
+  })
+
   it('deny-lookup captures the access hash and names without caching the user', async () => {
     const env = makeEnv({ denylist: () => ({ version: 1, users: [], chats: [], allowChats: [] }) })
     await admin(env, ['+15550000000', '12345'], 'login')
