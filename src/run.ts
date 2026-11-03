@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import type { RpcCallMiddleware } from '@mtcute/core'
 import { tl } from '@mtcute/core'
-import { runDraft, runMarkReadArchive, runRead, runSend, runWhoami } from './actions.js'
+import { runClearDraft, runDraft, runMarkReadArchive, runRead, runReadDraft, runSend, runWhoami } from './actions.js'
 import { type ParsedArgs, intFlag, parseArgs, textFlag } from './args.js'
 import { type ChatsFolder, parseSearchCursor, queryArg, runChat, runChats, runResolve, runSearch, usernameArg } from './browse.js'
 import { openSession } from './client.js'
@@ -42,6 +42,8 @@ const VERBS: Record<string, { mode: Mode | null; flags: Record<string, 'value' |
   search: { mode: 'search', flags: { json: 'bool', query: 'value', chat: 'value', limit: 'value', cursor: 'value' } },
   read: { mode: 'read', flags: { json: 'bool', limit: 'value', before: 'value' } },
   draft: { mode: 'draft', flags: { json: 'bool', text: 'value', 'reply-to': 'value' } },
+  'read-draft': { mode: 'read-draft', flags: { json: 'bool' } },
+  'clear-draft': { mode: 'clear-draft', flags: { json: 'bool' } },
   'mark-read-archive': { mode: 'dismiss', flags: { json: 'bool', 'max-id': 'value' } },
   send: { mode: 'send', flags: { json: 'bool', text: 'value', 'reply-to': 'value' } },
   whoami: { mode: 'whoami', flags: { json: 'bool' } },
@@ -121,6 +123,10 @@ async function dispatch(args: ParsedArgs, ctx: Ctx): Promise<object> {
       return runRead(ctx, chatArg(args), intFlag(f, 'limit', 1, 50), intFlag(f, 'before', 1, 2 ** 31 - 1))
     case 'draft':
       return runDraft(ctx, chatArg(args), textFlag(f, 'text'), intFlag(f, 'reply-to', 1, 2 ** 31 - 1))
+    case 'read-draft':
+      return runReadDraft(ctx, chatArg(args))
+    case 'clear-draft':
+      return runClearDraft(ctx, chatArg(args))
     case 'mark-read-archive': {
       const maxId = intFlag(f, 'max-id', 1, 2 ** 31 - 1)
       if (maxId === undefined) throw new ToolError('bad_args')

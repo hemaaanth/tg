@@ -670,6 +670,32 @@ describe('writes', () => {
     expect(env.fake.drafts).toEqual([{ peer: ALICE, text: 'draft reply' }])
   })
 
+  it('reads only a known chat cloud draft and clears it without sending or marking read', async () => {
+    const env = await loggedInEnv()
+    await cli(env, 'sync', '--json')
+    env.fake.cloudDrafts.set(ALICE, 'draft reply')
+    env.fake.calls.length = 0
+    expect((await cli(env, 'read-draft', String(ALICE), '--json')).json).toEqual({
+      ok: true, verb: 'read-draft', chatId: String(ALICE), draft: 'draft reply',
+    })
+    expect((await cli(env, 'clear-draft', String(ALICE), '--json')).json).toEqual({
+      ok: true, verb: 'clear-draft', chatId: String(ALICE),
+    })
+    expect(env.fake.drafts).toEqual([{ peer: ALICE, text: '' }])
+    expect((await cli(env, 'read-draft', String(ALICE), '--json')).json.draft).toBeNull()
+    expect(env.fake.methods()).not.toContain('messages.sendMessage')
+    expect(env.fake.methods()).not.toContain('messages.readHistory')
+  })
+
+  it('does not mistake a draft read cooldown for no draft', async () => {
+    const env = await loggedInEnv()
+    await cli(env, 'sync', '--json')
+    env.fake.inject.set('messages.getPeerDialogs', ['FLOOD_WAIT_600'])
+    const r = await cli(env, 'read-draft', String(ALICE))
+    expect(r.json.error.code).toBe('cooldown')
+    expect(r.json.error.until).toBeDefined()
+  })
+
   it('marks read and archives, so the next sync skips the chat', async () => {
     const env = await loggedInEnv()
     await cli(env, 'sync', '--json')
@@ -689,8 +715,11 @@ describe('writes', () => {
   it('blocks every write in read-only mode', async () => {
     const env = await loggedInEnv({ config: { readOnly: true, allowSend: true } })
     await cli(env, 'sync', '--json')
+    env.fake.cloudDrafts.set(ALICE, 'existing draft')
+    expect((await cli(env, 'read-draft', String(ALICE))).json.draft).toBe('existing draft')
     for (const argv of [
       ['draft', String(ALICE), '--text', 'x'],
+      ['clear-draft', String(ALICE)],
       ['mark-read-archive', String(ALICE), '--max-id', '17'],
       ['send', String(ALICE), '--text', 'x'],
     ]) {
@@ -739,6 +768,8 @@ describe('writes', () => {
     env.fake.calls.length = 0
     for (const argv of [
       ['draft', String(DENIED), '--text', 'x'],
+      ['read-draft', String(DENIED)],
+      ['clear-draft', String(DENIED)],
       ['mark-read-archive', String(markChannel(DENIED_SUPER)), '--max-id', '1'],
       ['send', String(markChat(DENIED_GROUP)), '--text', 'x'],
     ]) {

@@ -12,7 +12,7 @@ import { discover, scrub } from './scrub.js'
 //   4. discovers groups that hold denied users, then
 //   5. scrubs the response before mtcute's cache and storage see it.
 
-export type Mode = 'sync' | 'chats' | 'search' | 'read' | 'draft' | 'dismiss' | 'send' | 'whoami' | 'login' | 'deny-lookup' | 'work-audit' | 'invite-work-user' | 'resolve' | 'chat'
+export type Mode = 'sync' | 'chats' | 'search' | 'read' | 'draft' | 'read-draft' | 'clear-draft' | 'dismiss' | 'send' | 'whoami' | 'login' | 'deny-lookup' | 'work-audit' | 'invite-work-user' | 'resolve' | 'chat'
 
 const SESSION = ['help.getConfig', 'help.getNearestDc', 'auth.exportAuthorization', 'auth.importAuthorization']
 const PROBES = ['messages.getCommonChats', 'channels.getParticipant', 'messages.getFullChat']
@@ -34,6 +34,8 @@ export const ALLOWED: Record<Mode, ReadonlySet<string>> = {
   search: new Set([...SESSION, ...PROBES, 'messages.searchGlobal', 'messages.search', 'messages.getHistory']),
   read: new Set([...SESSION, ...PROBES, 'messages.getHistory']),
   draft: new Set([...SESSION, ...PROBES, 'messages.saveDraft']),
+  'read-draft': new Set([...SESSION, ...PROBES, 'messages.getPeerDialogs']),
+  'clear-draft': new Set([...SESSION, ...PROBES, 'messages.saveDraft']),
   dismiss: new Set([
     ...SESSION,
     ...PROBES,

@@ -40,6 +40,8 @@ cli.mjs resolve <username>
 cli.mjs chat <chatId>
 cli.mjs read <chatId> [--limit 1-50] [--before <messageId>]
 cli.mjs draft <chatId> --text <text> [--reply-to <messageId>]
+cli.mjs read-draft <chatId>
+cli.mjs clear-draft <chatId>
 cli.mjs mark-read-archive <chatId> --max-id <messageId>
 cli.mjs send <chatId> --text <text> [--reply-to <messageId>]
 cli.mjs whoami
@@ -149,10 +151,16 @@ of permissions, privacy settings, flood limits, or account restrictions.
 
 ### Chat verbs
 
-`read`, `draft`, `mark-read-archive` and `send` work only on chats that
-sync, chats or search has listed. Denied, unknown and never-listed chats all give the same
-`chat_unavailable` error. `send` also needs `allowSend` in the config, an
-inbound message in the chat, and room under the daily cap (at most 20).
+`read`, `draft`, `read-draft`, `clear-draft`, `mark-read-archive` and `send`
+work only on chats that sync, chats or search has listed. Denied, unknown and
+never-listed chats all give the same `chat_unavailable` error. `read-draft`
+returns `{ chatId, draft: string | null }`; null means the accessible chat has
+no cloud text draft. Unavailable or unsupported media drafts fail, not null.
+`clear-draft` writes an empty Telegram draft (the same as mtcute's
+`saveDraft(null)`) and requires writes enabled. It does not compare the text;
+callers must check the current draft and send state before clearing. `send`
+also needs `allowSend` in the config, an inbound message in the chat, and room
+under the daily cap (at most 20).
 
 ## How the filter works
 

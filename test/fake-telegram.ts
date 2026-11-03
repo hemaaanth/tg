@@ -110,6 +110,7 @@ export class FakeTelegram {
   history = new Map<number, FakeMessage[]>() // keyed by marked id
   dialogs: FakeDialog[] = []
   drafts: Array<{ peer: number; text: string }> = []
+  cloudDrafts = new Map<number, string>()
   sent: Array<{ peer: number; text: string }> = []
   invited: Array<{ peer: number; user: number; fwdLimit: number | null }> = []
   readUpTo = new Map<number, number>()
@@ -376,6 +377,7 @@ export class FakeTelegram {
         unreadReactionsCount: 0,
         notifySettings: { _: 'peerNotifySettings' },
         folderId: d.folder,
+        ...(this.cloudDrafts.has(d.peer) ? { draft: { _: 'draftMessage', message: this.cloudDrafts.get(d.peer), date: 1 } } : {}),
       })),
       messages,
       chats: page.filter((d) => d.peer < 0).map((d) => this.tlChat(d.peer)),
@@ -515,9 +517,14 @@ export class FakeTelegram {
       }
       case 'users.getUsers':
         return [this.tlUser(SELF)]
-      case 'messages.saveDraft':
-        this.drafts.push({ peer: markedOfInput(req.peer as Record<string, unknown>)!, text: req.message as string })
+      case 'messages.saveDraft': {
+        const peer = markedOfInput(req.peer as Record<string, unknown>)!
+        const text = req.message as string
+        this.drafts.push({ peer, text })
+        if (text) this.cloudDrafts.set(peer, text)
+        else this.cloudDrafts.delete(peer)
         return true
+      }
       case 'messages.readHistory':
         this.readUpTo.set(markedOfInput(req.peer as Record<string, unknown>)!, req.maxId as number)
         return { _: 'messages.affectedMessages', pts: 1, ptsCount: 1 }

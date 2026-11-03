@@ -1,9 +1,10 @@
 import { Long, type tl } from '@mtcute/core'
 import { randomLong } from '@mtcute/core/utils.js'
+import { MAX_TEXT } from './args.js'
 import { MAX_DAILY_SEND_CAP } from './config.js'
 import { ToolError } from './errors.js'
 import { type OutMessage, collectNames, messagesFor, userName } from './format.js'
-import { parseMarked } from './ids.js'
+import { markedFromPeer, parseMarked } from './ids.js'
 import type { KnownChat } from './state.js'
 import { MAX_MESSAGES_PER_CHAT } from './sync.js'
 import { type Ctx, inputPeer, verifyChat } from './verify.js'
@@ -59,6 +60,29 @@ export async function runRead(ctx: Ctx, marked: number, limit = 20, before?: num
   if (ctx.deny.isMarked(marked)) throw new ToolError('chat_unavailable')
   const messages = res._ === 'messages.messagesNotModified' ? [] : messagesFor(res, marked, ctx.selfId, collectNames(res))
   return { ok: true, verb: 'read', chatId: String(marked), messages }
+}
+
+export async function runReadDraft(ctx: Ctx, marked: number) {
+  const chat = await resolveChat(ctx, marked)
+  const res = (await ctx.tg.call({
+    _: 'messages.getPeerDialogs', peers: [{ _: 'inputDialogPeer', peer: chat.peer }],
+  })) as tl.messages.TypePeerDialogs
+  if (ctx.deny.isMarked(marked)) throw new ToolError('chat_unavailable')
+  const dialog = res.dialogs.find((d): d is tl.RawDialog => d._ === 'dialog' && markedFromPeer(d.peer) === marked)
+  if (!dialog) throw new ToolError('chat_unavailable')
+  const draft = dialog.draft
+  if (draft?._ === 'draftMessage' && (draft.media || draft.richMessage || draft.message.length > MAX_TEXT)) {
+    throw new ToolError('chat_unavailable')
+  }
+  return { ok: true as const, verb: 'read-draft' as const, chatId: String(marked), draft: draft?._ === 'draftMessage' ? draft.message : null }
+}
+
+export async function runClearDraft(ctx: Ctx, marked: number) {
+  if (ctx.config.readOnly) throw new ToolError('read_only')
+  const chat = await resolveChat(ctx, marked)
+  // mtcute's saveDraft(null) uses an empty message, not an empty --text draft.
+  await ctx.tg.call({ _: 'messages.saveDraft', peer: chat.peer, message: '' })
+  return { ok: true as const, verb: 'clear-draft' as const, chatId: String(marked) }
 }
 
 export async function runDraft(ctx: Ctx, marked: number, text: string, reply?: number) {
