@@ -79,7 +79,7 @@ export async function inputPeer(ctx: Ctx, marked: number): Promise<tl.TypeInputP
 
 async function probeBasicGroup(ctx: Ctx, rawId: number): Promise<Membership> {
   const res = (await ctx.tg.call({ _: 'messages.getFullChat', chatId: rawId })) as unknown as FullChatProbe
-  if (res.status === 'unknown') ctx.onVerificationFailure?.('member_list_unavailable')
+  if (res.status === 'unknown') ctx.onVerificationFailure?.(res.unavailableReason ?? 'member_list_unavailable')
   return res.status
 }
 

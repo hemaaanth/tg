@@ -179,6 +179,19 @@ describe('guard', () => {
     }
   }
 
+  it.each([
+    [{ fullChat: { participants: { _: 'chatParticipantsForbidden' } } }, 'member_list_restricted'],
+    [{ fullChat: {}, chats: [{ id: 12345, migratedTo: { channelId: 42 } }] }, 'group_migrated'],
+    [{ fullChat: {}, chats: [{ id: 12345, left: true }] }, 'account_left_group'],
+    [{ fullChat: {} }, 'member_list_missing'],
+  ])('distinguishes unavailable member lists without returning people or messages', async (reply, reason) => {
+    const mw = denyGuard({ deny: deny(), mode: 'read', readOnly: true, allowSend: false })
+    const result = await mw({ request: { _: 'messages.getFullChat', chatId: 12345 } } as never,
+      async () => ({ _: 'messages.chatFull', ...reply, users: [{ secret: 'must-not-return' }] }) as never)
+    expect(result).toMatchObject({ status: 'unknown', unavailableReason: reason })
+    expect(JSON.stringify(result)).not.toContain('must-not-return')
+  })
+
   it('allows only listed methods per mode', async () => {
     expect(await code(run('sync', { _: 'messages.sendMessage', peer: { _: 'inputPeerSelf' } }))).toBe('method_blocked')
     expect(await code(run('read', { _: 'messages.getDialogs' }))).toBe('method_blocked')

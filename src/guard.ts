@@ -73,6 +73,7 @@ export interface FullChatProbe {
   _: 'tgi.fullChat'
   status: 'clean' | 'denied' | 'unknown'
   memberIds?: number[]
+  unavailableReason?: string
 }
 export interface ParticipantProbe {
   _: 'tgi.participant'
@@ -160,7 +161,16 @@ function fullChatProbe(req: Record<string, unknown>, res: Record<string, unknown
   const full = res.fullChat as Record<string, unknown> | undefined
   const participants = full?.participants as Record<string, unknown> | undefined
   if (!participants || participants._ !== 'chatParticipants' || !Array.isArray(participants.participants)) {
-    return { _: 'tgi.fullChat', status: 'unknown' }
+    const chats = Array.isArray(res.chats) ? res.chats as Array<Record<string, unknown>> : []
+    const chat = chats.find((item) => item.id === chatId)
+    const migrated = chat?.migratedTo as { channelId?: unknown } | undefined
+    const unavailableReason = migrated ? 'group_migrated'
+      : chat?.left ? 'account_left_group'
+      : chat?._ === 'chatForbidden' ? 'group_forbidden'
+      : participants?._ === 'chatParticipantsForbidden' ? 'member_list_restricted'
+      : !full ? 'full_group_missing'
+      : !participants ? 'member_list_missing' : 'member_list_format_unrecognized'
+    return { _: 'tgi.fullChat', status: 'unknown', unavailableReason }
   }
   const hit = participants.participants.some((p) => {
     const uid = (p as { userId?: unknown }).userId
