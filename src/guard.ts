@@ -33,18 +33,19 @@ export const ALLOWED: Record<Mode, ReadonlySet<string>> = {
   chats: new Set([...SESSION, ...PROBES, 'messages.getDialogs', 'messages.getHistory']),
   search: new Set([...SESSION, ...PROBES, 'messages.searchGlobal', 'messages.search', 'messages.getHistory']),
   read: new Set([...SESSION, ...PROBES, 'messages.getHistory']),
-  draft: new Set([...SESSION, ...PROBES, 'messages.saveDraft']),
-  'read-draft': new Set([...SESSION, ...PROBES, 'messages.getPeerDialogs']),
-  'clear-draft': new Set([...SESSION, ...PROBES, 'messages.saveDraft']),
+  draft: new Set([...SESSION, ...PROBES, 'messages.getHistory', 'messages.saveDraft']),
+  'read-draft': new Set([...SESSION, ...PROBES, 'messages.getHistory', 'messages.getPeerDialogs']),
+  'clear-draft': new Set([...SESSION, ...PROBES, 'messages.getHistory', 'messages.saveDraft']),
   dismiss: new Set([
     ...SESSION,
     ...PROBES,
+    'messages.getHistory',
     'messages.readHistory',
     'channels.readHistory',
     'messages.readMentions',
     'folders.editPeerFolders',
   ]),
-  send: new Set([...SESSION, ...PROBES, 'messages.sendMessage']),
+  send: new Set([...SESSION, ...PROBES, 'messages.getHistory', 'messages.sendMessage']),
   whoami: new Set([...SESSION, 'users.getUsers']),
   login: new Set([
     ...SESSION,
@@ -73,6 +74,8 @@ export interface FullChatProbe {
   _: 'tgi.fullChat'
   status: 'clean' | 'denied' | 'unknown'
   memberIds?: number[]
+  unavailableReason?: string
+  migration?: { channelId: number; accessHash: string }
 }
 export interface ParticipantProbe {
   _: 'tgi.participant'
@@ -160,7 +163,17 @@ function fullChatProbe(req: Record<string, unknown>, res: Record<string, unknown
   const full = res.fullChat as Record<string, unknown> | undefined
   const participants = full?.participants as Record<string, unknown> | undefined
   if (!participants || participants._ !== 'chatParticipants' || !Array.isArray(participants.participants)) {
-    return { _: 'tgi.fullChat', status: 'unknown' }
+    const chats = Array.isArray(res.chats) ? res.chats as Array<Record<string, unknown>> : []
+    const chat = chats.find((item) => item.id === chatId)
+    const migrated = chat?.migratedTo as { channelId?: unknown; accessHash?: { toString(): string } } | undefined
+    const unavailableReason = migrated ? 'group_migrated'
+      : chat?.left ? 'account_left_group'
+      : chat?._ === 'chatForbidden' ? 'group_forbidden'
+      : participants?._ === 'chatParticipantsForbidden' ? 'member_list_restricted'
+      : !full ? 'full_group_missing'
+      : !participants ? 'member_list_missing' : 'member_list_format_unrecognized'
+    return { _: 'tgi.fullChat', status: 'unknown', unavailableReason,
+      ...(typeof migrated?.channelId === 'number' && migrated.accessHash ? { migration: { channelId: migrated.channelId, accessHash: migrated.accessHash.toString() } } : {}) }
   }
   const hit = participants.participants.some((p) => {
     const uid = (p as { userId?: unknown }).userId

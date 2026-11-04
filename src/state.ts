@@ -24,6 +24,7 @@ export interface StateData {
   breakerUntil: number | null
   lastCallAt: Record<string, number>
   deniedChats: number[]
+  migrations: Record<string, number>
   membership: Record<string, { status: Membership; at: number }>
   deniedUsersSnapshot: number[]
   commonChatsAt: Record<string, number>
@@ -42,6 +43,7 @@ export function emptyState(): StateData {
     breakerUntil: null,
     lastCallAt: {},
     deniedChats: [],
+    migrations: {},
     membership: {},
     deniedUsersSnapshot: [],
     commonChatsAt: {},

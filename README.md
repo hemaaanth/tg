@@ -200,3 +200,38 @@ The build bundles `@mtcute/core`, `@mtcute/wasm`, `@fuman/node` and
 The tests use a fake Telegram at the end of the middleware chain. They
 check that denied ids and names never appear in stdout, the session file,
 the peer cache, the state directory or the logs.
+
+### Diagnose an unavailable chat (owner only)
+
+Run `sudo tg-admin diagnose-chat <chatId>`. This checks saved state only.
+It reports `policy_refused`, `not_discovered`, `verification_inconclusive`,
+`verification_needed`, or `cached_checks_passed`. It does not read Telegram,
+change settings, clear caches, or show messages, people, or credentials.
+The normal agent command does not expose this check. A cached check passing
+does not prove live access.
+
+If verification was inconclusive, `sudo tg-admin refresh-chat <chatId>`
+checks membership again and updates its saved result. It reads no messages
+and cannot override a denied chat. It reports a safe failure code when the
+request fails, rather than treating every failure as lost group access.
+
+For a migrated basic group, refresh follows Telegram's migration reference,
+verifies the destination, and runs normal guarded discovery before returning
+`migratedChatId`. An optional `--note "Group title"` limits discovery by title.
+This discovery can inspect recent history through the existing privacy filter;
+no messages are printed. A denied destination is never returned as a repair.
+Use the verified new ID to update the application's saved group mapping.
+
+### Saved IDs after group upgrades
+
+Chat commands automatically follow a known basic group's migration to a
+supergroup. The destination must pass membership and recent-history privacy
+checks before the CLI saves a mapping. It rechecks the destination on later
+commands. Denying either ID still refuses access.
+
+Existing callers keep their requested `chatId` in action responses. A
+`resolvedChatId` field reports the current ID after migration. Reads filter
+messages using the current ID, and scoped search accepts its current cursor.
+Old IDs must not be used with `--before` or `--reply-to`: use the current ID
+returned by an unpaginated read so old message IDs cannot address unrelated
+messages. No group names or IDs are hardcoded.

@@ -250,6 +250,13 @@ export async function runChat(ctx: Ctx, marked: number): Promise<ChatResult> {
   const result: ChatResult = { ok: true, verb: 'chat', complete: true, cooldown: null, chat: null }
   if (ctx.deny.isMarked(marked)) return result
   await refreshCommonChats(ctx)
+  if (ctx.state.data.known[String(marked)]) {
+    try { marked = (await resolveChat(ctx, marked)).marked }
+    catch (error) {
+      if (error instanceof ToolError && error.code === 'chat_unavailable') return result
+      throw error
+    }
+  }
   const [kind, rawId] = parseMarked(marked)
   // A basic group needs no access hash, so it works without the cache.
   const peer = (await inputPeer(ctx, marked)) ?? (kind === 'chat' && !ctx.deny.isMarked(marked) ? { _: 'inputPeerChat' as const, chatId: rawId } : null)
@@ -317,8 +324,8 @@ function nextCursor(ctx: Ctx, res: SearchRes, hasMore: boolean): string | null {
 }
 
 async function searchInChat(ctx: Ctx, marked: number, query: string, limit: number, cursor: SearchCursor | null): Promise<SearchResult> {
-  if (cursor && cursor.chatId !== null && cursor.chatId !== marked) throw new ToolError('bad_args')
   const chat = await resolveChat(ctx, marked)
+  if (cursor && cursor.chatId !== null && cursor.chatId !== marked && cursor.chatId !== chat.marked) throw new ToolError('bad_args')
   const res = (await ctx.tg.call({
     _: 'messages.search',
     peer: chat.peer,
@@ -336,7 +343,7 @@ async function searchInChat(ctx: Ctx, marked: number, query: string, limit: numb
   if (ctx.deny.isMarked(marked)) throw new ToolError('chat_unavailable')
   const result: SearchResult = { ok: true, verb: 'search', chatId: String(marked), complete: true, cooldown: null, nextCursor: null, messages: [] }
   if (res._ === 'messages.messagesNotModified') return result
-  result.messages = hitsFrom(ctx, res, collectNames(res), (c) => c === marked)
+  result.messages = hitsFrom(ctx, res, collectNames(res), (c) => c === chat.marked)
   result.nextCursor = nextCursor(ctx, res, res._ !== 'messages.messages' && res.messages.length > 0)
   return result
 }
