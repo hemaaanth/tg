@@ -200,3 +200,12 @@ The build bundles `@mtcute/core`, `@mtcute/wasm`, `@fuman/node` and
 The tests use a fake Telegram at the end of the middleware chain. They
 check that denied ids and names never appear in stdout, the session file,
 the peer cache, the state directory or the logs.
+
+### Diagnose an unavailable chat (owner only)
+
+Run `sudo tg-admin diagnose-chat <chatId>`. This checks saved state only.
+It reports `policy_refused`, `not_discovered`, `verification_inconclusive`,
+`verification_needed`, or `cached_checks_passed`. It does not read Telegram,
+change settings, clear caches, or show messages, people, or credentials.
+The normal agent command does not expose this check. A cached check passing
+does not prove live access.

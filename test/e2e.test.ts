@@ -904,6 +904,16 @@ describe('admin', () => {
     expect(sessionRows(env.paths.sessionFile).peers).not.toContain(DENIED)
   })
 
+  it('diagnoses a chat for the owner without reading Telegram or changing state', async () => {
+    const env = makeEnv()
+    const before = existsSync(env.paths.stateFile)
+    const r = await admin(env, [], 'diagnose-chat', String(CLEAN_GROUP))
+    expect(JSON.parse(r.out)).toEqual({ chatId: String(CLEAN_GROUP), reason: 'not_discovered' })
+    expect(env.fake.calls).toEqual([])
+    expect(existsSync(env.paths.stateFile)).toBe(before)
+    await expect(admin(env, [], 'diagnose-chat', 'invalid')).rejects.toThrow()
+  })
+
   it('deny-chat and deny-remove print a new list without network', async () => {
     const env = makeEnv()
     let r = await admin(env, [], 'deny-chat', String(markChat(12345)))

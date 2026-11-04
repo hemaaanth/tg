@@ -54,6 +54,7 @@ case "$verb" in
   deny-add)     edit_denylist deny-lookup "$@" ;;
   deny-remove)  edit_denylist deny-remove "$@" ;;
   deny-chat)    edit_denylist deny-chat "$@" ;;
+  diagnose-chat) as_tg "$LIB/admin.mjs" diagnose-chat "$@" ;;
   status)       as_tg "$LIB/cli.mjs" status ;;
   logout)
     rm -f "$VAR/telegram.session" "$VAR/telegram.session-journal"

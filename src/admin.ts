@@ -230,6 +230,21 @@ export async function runAdmin(argv: string[], deps: AdminDeps): Promise<number>
       printDenylist({ ...denylist, users: denylist.users.filter((u) => !ids.includes(u.id)) }, write)
       return 0
     }
+    case 'diagnose-chat': {
+      const marked = positional.length === 1 ? parseChatIdArg(positional[0]) : null
+      if (marked === null || flags.size) throw new ToolError('bad_args')
+      const { denylist } = loadEnvironment(deps.paths, deps.trust, true)
+      const state = new StateStore(deps.paths.stateFile)
+      const deny = new DenySet(denylist, state.data.deniedChats)
+      const membership = state.membership(marked)
+      const reason = deny.isMarked(marked) || membership === 'denied' ? 'policy_refused'
+        : !state.data.known[String(marked)] ? 'not_discovered'
+        : membership === 'unknown' ? 'verification_inconclusive'
+        : membership === null ? 'verification_needed' : 'cached_checks_passed'
+      // Admin only: no Telegram requests, messages, names, secrets, or state changes.
+      write(JSON.stringify({ chatId: String(marked), reason }) + '\n')
+      return 0
+    }
     case 'deny-chat': {
       const ids = positional.map((v) => parseChatIdArg(v))
       if (!ids.length || ids.some((n) => n === null || n >= 0)) throw new ToolError('bad_args')
