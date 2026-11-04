@@ -4,7 +4,7 @@ import type { RpcCallMiddleware } from '@mtcute/core'
 import { tl } from '@mtcute/core'
 import { runClearDraft, runDraft, runMarkReadArchive, runRead, runReadDraft, runSend, runWhoami } from './actions.js'
 import { type ParsedArgs, intFlag, parseArgs, textFlag } from './args.js'
-import { type ChatsFolder, parseSearchCursor, queryArg, runChat, runChats, runResolve, runSearch, usernameArg } from './browse.js'
+import { type ChatsFolder, parseSearchCursor, queryArg, runChat, runChats, runDrafts, runResolve, runSearch, usernameArg } from './browse.js'
 import { openSession } from './client.js'
 import { type Config, type Paths, type Trust, loadEnvironment } from './config.js'
 import { DenySet, type Denylist } from './deny-set.js'
@@ -42,6 +42,7 @@ const VERBS: Record<string, { mode: Mode | null; flags: Record<string, 'value' |
   search: { mode: 'search', flags: { json: 'bool', query: 'value', chat: 'value', limit: 'value', cursor: 'value' } },
   read: { mode: 'read', flags: { json: 'bool', limit: 'value', before: 'value' } },
   draft: { mode: 'draft', flags: { json: 'bool', text: 'value', 'reply-to': 'value' } },
+  drafts: { mode: 'drafts', flags: { json: 'bool' } },
   'read-draft': { mode: 'read-draft', flags: { json: 'bool' } },
   'clear-draft': { mode: 'clear-draft', flags: { json: 'bool' } },
   'mark-read-archive': { mode: 'dismiss', flags: { json: 'bool', 'max-id': 'value' } },
@@ -108,6 +109,9 @@ async function dispatch(args: ParsedArgs, ctx: Ctx): Promise<object> {
       if (!['main', 'archive', 'all'].includes(folder)) throw new ToolError('bad_args')
       return runChats(ctx, folder, queryArg(f.query, false), intFlag(f, 'limit', 1, 100) ?? 50)
     }
+    case 'drafts':
+      if (args.positional.length) throw new ToolError('bad_args')
+      return runDrafts(ctx)
     case 'search': {
       if (args.positional.length) throw new ToolError('bad_args')
       let chat: number | undefined

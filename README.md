@@ -40,6 +40,7 @@ cli.mjs resolve <username>
 cli.mjs chat <chatId>
 cli.mjs read <chatId> [--limit 1-50] [--before <messageId>]
 cli.mjs draft <chatId> --text <text> [--reply-to <messageId>]
+cli.mjs drafts
 cli.mjs read-draft <chatId>
 cli.mjs clear-draft <chatId>
 cli.mjs mark-read-archive <chatId> --max-id <messageId>
@@ -156,6 +157,12 @@ work only on chats that sync, chats or search has listed. Denied, unknown and
 never-listed chats all give the same `chat_unavailable` error. `read-draft`
 returns `{ chatId, draft: string | null }`; null means the accessible chat has
 no cloud text draft. Unavailable or unsupported media drafts fail, not null.
+`drafts` lists every shown chat that has a saved cloud draft, in both
+folders: `{ complete, items: [{ chatId, chatType, title, username, folder,
+date, text, replyToId }] }`. `text` is null for a media, rich or over-long
+draft. Denied chats and groups with a denied member are left out. A listed
+chat counts as listed for the chat verbs. `complete: false` means the dialog
+list was cut short, so a missing chat may still have a draft.
 `clear-draft` writes an empty Telegram draft (the same as mtcute's
 `saveDraft(null)`) and requires writes enabled. It does not compare the text;
 callers must check the current draft and send state before clearing. `send`

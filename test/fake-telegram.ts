@@ -322,6 +322,7 @@ export class FakeTelegram {
         unreadReactionsCount: 0,
         notifySettings: { _: 'peerNotifySettings' },
         folderId: folder,
+        ...(this.cloudDrafts.has(d.peer) ? { draft: { _: 'draftMessage', message: this.cloudDrafts.get(d.peer), date: 1 } } : {}),
       }
     })
     return {

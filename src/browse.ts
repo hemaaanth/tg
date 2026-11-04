@@ -1,5 +1,6 @@
 import { Long, tl } from '@mtcute/core'
 import { resolveChat } from './actions.js'
+import { MAX_TEXT } from './args.js'
 import { ToolError } from './errors.js'
 import { type Names, type OutMessage, collectNames, formatMessage } from './format.js'
 import { markedFromPeer, parseMarked } from './ids.js'
@@ -16,6 +17,8 @@ import { type Ctx, inputPeer, refreshCommonChats, verifyChat } from './verify.js
 export const CHATS_PAGES = 5
 export const SCAN_MESSAGES = 20
 export const MAX_QUERY = 256
+/** Dialog pages per folder for drafts. A missed draft breaks a ledger check, so it reads further than chats. */
+export const DRAFT_PAGES = 10
 
 export type ChatsFolder = 'main' | 'archive' | 'all'
 
@@ -36,6 +39,26 @@ export interface ChatsResult {
   complete: boolean
   cooldown: string | null
   items: ChatItem[]
+}
+
+export interface DraftItem {
+  chatId: string
+  chatType: ChatType
+  title: string
+  username: string | null
+  folder: 'main' | 'archive'
+  date: string
+  /** Null when the draft has media or rich text, or is too long. */
+  text: string | null
+  replyToId: number | null
+}
+
+export interface DraftsResult {
+  ok: true
+  verb: 'drafts'
+  complete: boolean
+  cooldown: string | null
+  items: DraftItem[]
 }
 
 export interface ResolveResult {
@@ -180,6 +203,39 @@ export async function runChats(ctx: Ctx, folder: ChatsFolder, query: string | un
       folder: c.folderId === 1 ? 'archive' : 'main',
       unreadCount: c.dialog.unreadCount,
       lastMessage: top ? formatMessage(top, c.marked, ctx.selfId, c.names) : null,
+    })
+  }
+
+  // A later chat may have proved an earlier one denied. Drop it again.
+  result.items = result.items.filter((i) => !ctx.deny.isMarked(Number(i.chatId)))
+  return result
+}
+
+/** Every shown chat with a saved cloud draft, in both folders. */
+export async function runDrafts(ctx: Ctx): Promise<DraftsResult> {
+  const result: DraftsResult = { ok: true, verb: 'drafts', complete: true, cooldown: null, items: [] }
+  await refreshCommonChats(ctx)
+  const { candidates, complete } = await loadDialogs(ctx, [0, 1], DRAFT_PAGES)
+  result.complete = complete
+
+  for (const c of candidates) {
+    const draft = c.dialog.draft
+    if (draft?._ !== 'draftMessage') continue
+    const ok = await guarded(result, () => showable(ctx, c.marked))
+    if (ok === 'stop') break
+    if (ok !== true || ctx.deny.isMarked(c.marked)) continue
+    const top = c.top && c.top._ === 'message' ? c.top : undefined
+    remember(ctx, c.marked, top && !top.out ? [top.id] : [])
+    const plain = !draft.media && !draft.richMessage && draft.message.length <= MAX_TEXT
+    result.items.push({
+      chatId: String(c.marked),
+      chatType: c.type,
+      title: c.title,
+      username: c.username,
+      folder: c.folderId === 1 ? 'archive' : 'main',
+      date: new Date(draft.date * 1000).toISOString(),
+      text: plain ? draft.message : null,
+      replyToId: draft.replyTo?._ === 'inputReplyToMessage' ? draft.replyTo.replyToMsgId : null,
     })
   }
 

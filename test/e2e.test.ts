@@ -449,6 +449,41 @@ describe('chats', () => {
   })
 })
 
+describe('drafts', () => {
+  it('lists cloud drafts in both folders and nothing denied', async () => {
+    const env = await loggedInEnv()
+    env.fake.dialogs.find((d) => d.peer === BOB)!.folder = 1
+    env.fake.cloudDrafts.set(ALICE, 'hi alice')
+    env.fake.cloudDrafts.set(BOB, 'hi bob')
+    env.fake.cloudDrafts.set(DENIED, 'canary draft')
+    env.fake.cloudDrafts.set(markChat(DENIED_GROUP), 'canary group draft')
+    env.fake.cloudDrafts.set(markChannel(DENIED_SUPER), 'canary super draft')
+    env.fake.cloudDrafts.set(markChannel(HIDDEN_SUPER), 'canary hidden draft')
+    const r = await cli(env, 'drafts', '--json')
+    expect(r.code).toBe(0)
+    expect(r.json.complete).toBe(true)
+    expect(r.json.items.map((i: { chatId: string; text: string; folder: string }) => [Number(i.chatId), i.text, i.folder]).sort())
+      .toEqual([[ALICE, 'hi alice', 'main'], [BOB, 'hi bob', 'archive']].sort())
+    expect(r.json.items[0].date).toBe('1970-01-01T00:00:01.000Z')
+    expect(r.raw).not.toContain('canary')
+    expectNoCanary(r.raw)
+    expect(env.fake.methods()).not.toContain('messages.saveDraft')
+  })
+
+  it('makes read-draft work on a listed chat without a sync', async () => {
+    const env = await loggedInEnv()
+    env.fake.cloudDrafts.set(markChannel(CLEAN_SUPER), 'super draft')
+    const r = await cli(env, 'drafts', '--json')
+    expect(r.json.items.map((i: { chatId: string }) => Number(i.chatId))).toEqual([markChannel(CLEAN_SUPER)])
+    expect((await cli(env, 'read-draft', String(markChannel(CLEAN_SUPER)))).json.draft).toBe('super draft')
+  })
+
+  it('rejects arguments', async () => {
+    const env = await loggedInEnv()
+    expect((await cli(env, 'drafts', String(ALICE))).json.error.code).toBe('bad_args')
+  })
+})
+
 describe('resolve', () => {
   it('resolves a clean user in the chats item shape and makes read work', async () => {
     const env = await loggedInEnv()
