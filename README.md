@@ -209,3 +209,8 @@ It reports `policy_refused`, `not_discovered`, `verification_inconclusive`,
 change settings, clear caches, or show messages, people, or credentials.
 The normal agent command does not expose this check. A cached check passing
 does not prove live access.
+
+If verification was inconclusive, `sudo tg-admin refresh-chat <chatId>`
+checks membership again and updates its saved result. It reads no messages
+and cannot override a denied chat. It reports a safe failure code when the
+request fails, rather than treating every failure as lost group access.

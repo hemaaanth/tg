@@ -18,6 +18,7 @@ export interface Ctx {
   denylist: Denylist
   selfId: number
   now: () => number
+  onVerificationFailure?: (reason: string) => void
 }
 
 export type Verdict = 'clean' | 'denied' | 'unknown' | 'budget'
@@ -78,12 +79,13 @@ export async function inputPeer(ctx: Ctx, marked: number): Promise<tl.TypeInputP
 
 async function probeBasicGroup(ctx: Ctx, rawId: number): Promise<Membership> {
   const res = (await ctx.tg.call({ _: 'messages.getFullChat', chatId: rawId })) as unknown as FullChatProbe
+  if (res.status === 'unknown') ctx.onVerificationFailure?.('member_list_unavailable')
   return res.status
 }
 
 async function probeSupergroup(ctx: Ctx, marked: number): Promise<Membership> {
   const peer = await inputPeer(ctx, marked)
-  if (!peer || peer._ !== 'inputPeerChannel') return 'unknown'
+  if (!peer || peer._ !== 'inputPeerChannel') { ctx.onVerificationFailure?.('peer_missing'); return 'unknown' }
   const channel: tl.RawInputChannel = { _: 'inputChannel', channelId: peer.channelId, accessHash: peer.accessHash }
   const { users, missingHash } = probeUsers(ctx)
   for (const user of users) {
@@ -102,6 +104,7 @@ async function probeSupergroup(ctx: Ctx, marked: number): Promise<Membership> {
       return 'unknown'
     }
   }
+  if (missingHash) ctx.onVerificationFailure?.('missing_verification_keys')
   return missingHash ? 'unknown' : 'clean'
 }
 
@@ -125,6 +128,7 @@ export async function verifyChat(
     } catch (err) {
       if (err instanceof ToolError && err.code === 'budget') return 'budget'
       if (err instanceof ToolError) throw err
+      ctx.onVerificationFailure?.(tl.RpcError.is(err) && /^[A-Z_0-9]+$/.test(err.text) ? err.text : 'verification_request_failed')
       verdict = 'unknown'
     }
     ctx.state.setMembership(marked, verdict, ctx.now())

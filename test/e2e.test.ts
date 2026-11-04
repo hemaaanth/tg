@@ -904,6 +904,13 @@ describe('admin', () => {
     expect(sessionRows(env.paths.sessionFile).peers).not.toContain(DENIED)
   })
 
+  it('refreshes inconclusive membership without reading messages', async () => {
+    const env = await loggedInEnv()
+    const result = await admin(env, [], 'refresh-chat', String(markChat(CLEAN_GROUP)))
+    expect(JSON.parse(result.out)).toEqual({ chatId: String(markChat(CLEAN_GROUP)), verdict: 'clean', detail: null })
+    expect(env.fake.calls.some((call) => call.method === 'messages.getHistory')).toBe(false)
+  })
+
   it('diagnoses a chat for the owner without reading Telegram or changing state', async () => {
     const env = makeEnv()
     const before = existsSync(env.paths.stateFile)

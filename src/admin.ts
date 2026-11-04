@@ -10,6 +10,7 @@ import { SERVICE_USER_ID, markedFromPeer, parseChatIdArg } from './ids.js'
 import { InstanceLock } from './lock.js'
 import type { LogSink } from './logging.js'
 import { StateStore } from './state.js'
+import { verifyChat } from './verify.js'
 
 // Admin verbs. These are NOT covered by the sudoers rule. Root runs them
 // through the tg-admin wrapper, which drops to the tg user.
@@ -228,6 +229,29 @@ export async function runAdmin(argv: string[], deps: AdminDeps): Promise<number>
       if (ids.includes(SERVICE_USER_ID)) throw new ToolError('bad_args')
       const { denylist } = loadEnvironment(deps.paths, deps.trust, true)
       printDenylist({ ...denylist, users: denylist.users.filter((u) => !ids.includes(u.id)) }, write)
+      return 0
+    }
+    case 'refresh-chat': {
+      const marked = positional.length === 1 ? parseChatIdArg(positional[0]) : null
+      if (marked === null || flags.size) throw new ToolError('bad_args')
+      const { config, denylist } = loadEnvironment(deps.paths, deps.trust, true)
+      const state = new StateStore(deps.paths.stateFile)
+      const deny = new DenySet(denylist, state.data.deniedChats)
+      if (deny.isMarked(marked) || state.membership(marked) === 'denied') {
+        write(JSON.stringify({ chatId: String(marked), verdict: 'denied' }) + '\n')
+        return 0
+      }
+      const lock = InstanceLock.acquire(deps.paths.lockFile, 90_000)
+      let session: Awaited<ReturnType<typeof openSession>> | undefined
+      try {
+        session = await openSession({ paths: deps.paths, config: { ...config, readOnly: true, allowSend: false }, deny, state,
+          mode: 'read', logSink: deps.logSink, logLevel: deps.logLevel, flood: deps.flood, fakeTelegram: deps.fakeTelegram })
+        if (session.selfId === null) throw new ToolError('not_logged_in')
+        let detail: string | null = null
+        const verdict = await verifyChat({ tg: session.tg, selfId: session.selfId, config, denylist, deny, state,
+          now: Date.now, onVerificationFailure: (reason) => { detail = reason } }, marked, { fresh: true, allowVouch: false })
+        write(JSON.stringify({ chatId: String(marked), verdict, detail }) + '\n')
+      } finally { try { await session?.close() } finally { lock.release() } }
       return 0
     }
     case 'diagnose-chat': {
