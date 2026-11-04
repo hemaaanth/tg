@@ -235,7 +235,8 @@ export async function runDrafts(ctx: Ctx): Promise<DraftsResult> {
       folder: c.folderId === 1 ? 'archive' : 'main',
       date: new Date(draft.date * 1000).toISOString(),
       text: plain ? draft.message : null,
-      replyToId: draft.replyTo?._ === 'inputReplyToMessage' ? draft.replyTo.replyToMsgId : null,
+      // Old drafts can carry reply id 0, which means no reply.
+      replyToId: draft.replyTo?._ === 'inputReplyToMessage' && draft.replyTo.replyToMsgId > 0 ? draft.replyTo.replyToMsgId : null,
     })
   }
 
