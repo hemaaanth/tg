@@ -161,8 +161,9 @@ no cloud text draft. Unavailable or unsupported media drafts fail, not null.
 folders: `{ complete, items: [{ chatId, chatType, title, username, folder,
 date, text, replyToId }] }`. `text` is null for a media, rich or over-long
 draft. Denied chats and groups with a denied member are left out. A listed
-chat counts as listed for the chat verbs. `complete: false` means the dialog
-list was cut short, so a missing chat may still have a draft.
+chat counts as listed for the chat verbs. It reads the whole dialog list.
+`complete: false` means it was cut short (a cooldown or an unreadable page),
+so a missing chat may still have a draft.
 `clear-draft` writes an empty Telegram draft (the same as mtcute's
 `saveDraft(null)`) and requires writes enabled. It does not compare the text;
 callers must check the current draft and send state before clearing. `send`

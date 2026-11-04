@@ -17,8 +17,8 @@ import { type Ctx, inputPeer, refreshCommonChats, verifyChat } from './verify.js
 export const CHATS_PAGES = 5
 export const SCAN_MESSAGES = 20
 export const MAX_QUERY = 256
-/** Dialog pages per folder for drafts. A missed draft breaks a ledger check, so it reads further than chats. */
-export const DRAFT_PAGES = 10
+/** Dialog pages per folder for drafts: all of them, as work-audit reads. A missed draft breaks a ledger check. */
+export const DRAFT_PAGES = Number.POSITIVE_INFINITY
 
 export type ChatsFolder = 'main' | 'archive' | 'all'
 
