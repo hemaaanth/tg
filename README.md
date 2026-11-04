@@ -157,13 +157,14 @@ work only on chats that sync, chats or search has listed. Denied, unknown and
 never-listed chats all give the same `chat_unavailable` error. `read-draft`
 returns `{ chatId, draft: string | null }`; null means the accessible chat has
 no cloud text draft. Unavailable or unsupported media drafts fail, not null.
-`drafts` lists every shown chat that has a saved cloud draft, in both
-folders: `{ complete, items: [{ chatId, chatType, title, username, folder,
-date, text, replyToId }] }`. `text` is null for a media, rich or over-long
-draft. Denied chats and groups with a denied member are left out. A listed
-chat counts as listed for the chat verbs. It reads the whole dialog list.
-`complete: false` means it was cut short (a cooldown or an unreadable page),
-so a missing chat may still have a draft.
+`drafts` lists every shown chat that has a saved cloud draft:
+`{ complete, items: [{ chatId, chatType, title, username, topicId, date,
+text, replyToId }] }`. It reads Telegram's own draft list, so it also finds
+a draft in a chat with no messages, which the dialog list leaves out.
+`topicId` is the forum topic, or null. `text` is null for a media, rich or
+over-long draft. Denied chats and groups with a denied member are left out. A
+listed chat counts as listed for the chat verbs. `complete: false` means a
+cooldown cut it short, so a missing chat may still have a draft.
 `clear-draft` writes an empty Telegram draft (the same as mtcute's
 `saveDraft(null)`) and requires writes enabled. It does not compare the text;
 callers must check the current draft and send state before clearing. `send`

@@ -502,6 +502,17 @@ export class FakeTelegram {
         return this.searchGlobal(req)
       case 'messages.getPeerDialogs':
         return this.getPeerDialogs(req)
+      case 'messages.getAllDrafts':
+        return {
+          _: 'updates',
+          updates: [...this.cloudDrafts].map(([peer, message]) => ({
+            _: 'updateDraftMessage', peer: peerOf(peer), draft: { _: 'draftMessage', message, date: 1 },
+          })),
+          users: [...this.cloudDrafts.keys()].filter((p) => this.users.has(p)).map((p) => this.tlUser(p)),
+          chats: [...this.cloudDrafts.keys()].filter((p) => p < 0).map((p) => this.tlChat(p)),
+          date: 1,
+          seq: 0,
+        }
       case 'messages.getCommonChats':
         return this.getCommonChats(req)
       case 'messages.getFullChat':

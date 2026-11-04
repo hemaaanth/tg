@@ -17,8 +17,6 @@ import { type Ctx, inputPeer, refreshCommonChats, verifyChat } from './verify.js
 export const CHATS_PAGES = 5
 export const SCAN_MESSAGES = 20
 export const MAX_QUERY = 256
-/** Dialog pages per folder for drafts: all of them, as work-audit reads. A missed draft breaks a ledger check. */
-export const DRAFT_PAGES = Number.POSITIVE_INFINITY
 
 export type ChatsFolder = 'main' | 'archive' | 'all'
 
@@ -46,7 +44,8 @@ export interface DraftItem {
   chatType: ChatType
   title: string
   username: string | null
-  folder: 'main' | 'archive'
+  /** The forum topic the draft is in, or null for the main chat. */
+  topicId: number | null
   date: string
   /** Null when the draft has media or rich text, or is too long. */
   text: string | null
@@ -211,32 +210,39 @@ export async function runChats(ctx: Ctx, folder: ChatsFolder, query: string | un
   return result
 }
 
-/** Every shown chat with a saved cloud draft, in both folders. */
+/**
+ * Every shown chat with a saved cloud draft. Telegram's own draft list also
+ * holds chats with no messages, which the dialog list leaves out.
+ */
 export async function runDrafts(ctx: Ctx): Promise<DraftsResult> {
   const result: DraftsResult = { ok: true, verb: 'drafts', complete: true, cooldown: null, items: [] }
   await refreshCommonChats(ctx)
-  const { candidates, complete } = await loadDialogs(ctx, [0, 1], DRAFT_PAGES)
-  result.complete = complete
+  const res = (await ctx.tg.call({ _: 'messages.getAllDrafts' })) as tl.TypeUpdates
+  if (res._ !== 'updates' && res._ !== 'updatesCombined') return result
+  const names = collectNames(res)
 
-  for (const c of candidates) {
-    const draft = c.dialog.draft
-    if (draft?._ !== 'draftMessage') continue
-    const ok = await guarded(result, () => showable(ctx, c.marked))
+  for (const u of res.updates) {
+    if (u._ !== 'updateDraftMessage' || u.draft._ !== 'draftMessage') continue
+    const draft = u.draft
+    const marked = markedFromPeer(u.peer)
+    const info = marked === null ? null : peerInfo(ctx, marked, names)
+    if (marked === null || !info) continue
+    const ok = await guarded(result, () => showable(ctx, marked))
     if (ok === 'stop') break
-    if (ok !== true || ctx.deny.isMarked(c.marked)) continue
-    const top = c.top && c.top._ === 'message' ? c.top : undefined
-    remember(ctx, c.marked, top && !top.out ? [top.id] : [])
+    if (ok !== true || ctx.deny.isMarked(marked)) continue
+    remember(ctx, marked, [])
     const plain = !draft.media && !draft.richMessage && draft.message.length <= MAX_TEXT
+    const reply = draft.replyTo?._ === 'inputReplyToMessage' ? draft.replyTo.replyToMsgId : 0
     result.items.push({
-      chatId: String(c.marked),
-      chatType: c.type,
-      title: c.title,
-      username: c.username,
-      folder: c.folderId === 1 ? 'archive' : 'main',
+      chatId: String(marked),
+      chatType: info.type,
+      title: info.title,
+      username: info.username,
+      topicId: u.topMsgId ?? null,
       date: new Date(draft.date * 1000).toISOString(),
       text: plain ? draft.message : null,
       // Old drafts can carry reply id 0, which means no reply.
-      replyToId: draft.replyTo?._ === 'inputReplyToMessage' && draft.replyTo.replyToMsgId > 0 ? draft.replyTo.replyToMsgId : null,
+      replyToId: reply > 0 ? reply : null,
     })
   }
 

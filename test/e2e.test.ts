@@ -450,11 +450,10 @@ describe('chats', () => {
 })
 
 describe('drafts', () => {
-  it('lists cloud drafts in both folders and nothing denied', async () => {
+  it('lists cloud drafts, including chats with no messages, and nothing denied', async () => {
     const env = await loggedInEnv()
-    env.fake.dialogs.find((d) => d.peer === BOB)!.folder = 1
     env.fake.cloudDrafts.set(ALICE, 'hi alice')
-    env.fake.cloudDrafts.set(BOB, 'hi bob')
+    env.fake.cloudDrafts.set(WORK_USER, 'hi northwind')
     env.fake.cloudDrafts.set(DENIED, 'canary draft')
     env.fake.cloudDrafts.set(markChat(DENIED_GROUP), 'canary group draft')
     env.fake.cloudDrafts.set(markChannel(DENIED_SUPER), 'canary super draft')
@@ -462,8 +461,9 @@ describe('drafts', () => {
     const r = await cli(env, 'drafts', '--json')
     expect(r.code).toBe(0)
     expect(r.json.complete).toBe(true)
-    expect(r.json.items.map((i: { chatId: string; text: string; folder: string }) => [Number(i.chatId), i.text, i.folder]).sort())
-      .toEqual([[ALICE, 'hi alice', 'main'], [BOB, 'hi bob', 'archive']].sort())
+    expect(env.fake.dialogs.some((d) => d.peer === WORK_USER)).toBe(false)
+    expect(r.json.items.map((i: { chatId: string; text: string; topicId: number | null }) => [Number(i.chatId), i.text, i.topicId]).sort())
+      .toEqual([[ALICE, 'hi alice', null], [WORK_USER, 'hi northwind', null]].sort())
     expect(r.json.items[0].date).toBe('1970-01-01T00:00:01.000Z')
     expect(r.raw).not.toContain('canary')
     expectNoCanary(r.raw)

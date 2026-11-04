@@ -23,6 +23,7 @@ export const BUDGETS: Record<string, Budget> = {
   'contacts.getContacts': { max: 1, minIntervalMs: 2000 },
   'contacts.resolveUsername': { max: 1, minIntervalMs: 2000 },
   'messages.getPeerDialogs': { max: 1, minIntervalMs: 1000 },
+  'messages.getAllDrafts': { max: 1, minIntervalMs: 1000 },
   'messages.saveDraft': { max: 1, minIntervalMs: 5000 },
   'messages.readHistory': { max: 1, minIntervalMs: 1000 },
   'channels.readHistory': { max: 1, minIntervalMs: 1000 },

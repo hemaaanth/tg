@@ -31,7 +31,7 @@ export const WRITE_METHODS = new Set([
 export const ALLOWED: Record<Mode, ReadonlySet<string>> = {
   sync: new Set([...SESSION, ...PROBES, 'messages.getDialogs', 'messages.getHistory']),
   chats: new Set([...SESSION, ...PROBES, 'messages.getDialogs', 'messages.getHistory']),
-  drafts: new Set([...SESSION, ...PROBES, 'messages.getDialogs', 'messages.getHistory']),
+  drafts: new Set([...SESSION, ...PROBES, 'messages.getAllDrafts', 'messages.getHistory']),
   search: new Set([...SESSION, ...PROBES, 'messages.searchGlobal', 'messages.search', 'messages.getHistory']),
   read: new Set([...SESSION, ...PROBES, 'messages.getHistory']),
   draft: new Set([...SESSION, ...PROBES, 'messages.getHistory', 'messages.saveDraft']),
