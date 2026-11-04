@@ -904,6 +904,44 @@ describe('admin', () => {
     expect(sessionRows(env.paths.sessionFile).peers).not.toContain(DENIED)
   })
 
+  it.each(['read', 'draft', 'read-draft', 'clear-draft', 'mark-read-archive', 'send', 'search', 'chat'])('automatically resolves a migrated saved group for %s', async (verb) => {
+    const env = await loggedInEnv({ config: { allowSend: true } })
+    await cli(env, 'sync', '--json')
+    env.fake.chats.get(markChat(CLEAN_GROUP))!.migratedTo = CLEAN_SUPER
+    const state = JSON.parse(stateText(env))
+    delete state.known[String(markChannel(CLEAN_SUPER))]
+    writeJson(env.paths.stateFile, state)
+    const args = verb === 'draft' || verb === 'send' ? ['--text', 'migration test']
+      : verb === 'mark-read-archive' ? ['--max-id', '1']
+      : []
+    const result = verb === 'search' ? await cli(env, 'search', '--query', 'hello', '--chat', String(markChat(CLEAN_GROUP)))
+      : await cli(env, verb, String(markChat(CLEAN_GROUP)), ...args)
+    expect(result.code).toBe(0)
+    expect(JSON.parse(stateText(env)).migrations[String(markChat(CLEAN_GROUP))]).toBe(markChannel(CLEAN_SUPER))
+    expectNoCanary(result.raw)
+    const second = await cli(env, 'read', String(markChat(CLEAN_GROUP)))
+    expect(second.code).toBe(0)
+    expect(second.json.resolvedChatId).toBe(String(markChannel(CLEAN_SUPER)))
+  })
+
+  it('does not reuse old reply or pagination IDs in a migrated group', async () => {
+    const env = await loggedInEnv()
+    await cli(env, 'sync', '--json')
+    env.fake.chats.get(markChat(CLEAN_GROUP))!.migratedTo = CLEAN_SUPER
+    expect((await cli(env, 'draft', String(markChat(CLEAN_GROUP)), '--text', 'reply', '--reply-to', '1')).code).toBe(2)
+    expect((await cli(env, 'read', String(markChat(CLEAN_GROUP)), '--before', '2')).code).toBe(2)
+  })
+
+  it('does not follow a saved migration into a denied group', async () => {
+    const env = await loggedInEnv()
+    await cli(env, 'sync', '--json')
+    env.fake.chats.get(markChat(CLEAN_GROUP))!.migratedTo = DENIED_SUPER
+    const result = await cli(env, 'draft', String(markChat(CLEAN_GROUP)), '--text', 'must not be saved')
+    expect(result.code).toBe(4)
+    expect(JSON.parse(stateText(env)).migrations[String(markChat(CLEAN_GROUP))]).toBeUndefined()
+    expectNoCanary(result.raw)
+  })
+
   it.each([[CLEAN_SUPER, 'clean'], [DENIED_SUPER, 'denied']] as const)('verifies a migration target before exposing it: %s', async (target, expected) => {
     const env = await loggedInEnv()
     env.fake.chats.get(markChat(CLEAN_GROUP))!.migratedTo = target

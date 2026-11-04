@@ -221,3 +221,17 @@ verifies the destination, and runs normal guarded discovery before returning
 This discovery can inspect recent history through the existing privacy filter;
 no messages are printed. A denied destination is never returned as a repair.
 Use the verified new ID to update the application's saved group mapping.
+
+### Saved IDs after group upgrades
+
+Chat commands automatically follow a known basic group's migration to a
+supergroup. The destination must pass membership and recent-history privacy
+checks before the CLI saves a mapping. It rechecks the destination on later
+commands. Denying either ID still refuses access.
+
+Existing callers keep their requested `chatId` in action responses. A
+`resolvedChatId` field reports the current ID after migration. Reads filter
+messages using the current ID, and scoped search accepts its current cursor.
+Old IDs must not be used with `--before` or `--reply-to`: use the current ID
+returned by an unpaginated read so old message IDs cannot address unrelated
+messages. No group names or IDs are hardcoded.
