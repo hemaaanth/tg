@@ -214,3 +214,10 @@ If verification was inconclusive, `sudo tg-admin refresh-chat <chatId>`
 checks membership again and updates its saved result. It reads no messages
 and cannot override a denied chat. It reports a safe failure code when the
 request fails, rather than treating every failure as lost group access.
+
+For a migrated basic group, refresh follows Telegram's migration reference,
+verifies the destination, and runs normal guarded discovery before returning
+`migratedChatId`. An optional `--note "Group title"` limits discovery by title.
+This discovery can inspect recent history through the existing privacy filter;
+no messages are printed. A denied destination is never returned as a repair.
+Use the verified new ID to update the application's saved group mapping.

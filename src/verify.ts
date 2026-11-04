@@ -19,6 +19,8 @@ export interface Ctx {
   selfId: number
   now: () => number
   onVerificationFailure?: (reason: string) => void
+  onMigration?: (peer: tl.RawInputPeerChannel) => void
+  peerOverride?: tl.RawInputPeerChannel
 }
 
 export type Verdict = 'clean' | 'denied' | 'unknown' | 'budget'
@@ -74,11 +76,13 @@ export async function refreshCommonChats(ctx: Ctx): Promise<void> {
 
 export async function inputPeer(ctx: Ctx, marked: number): Promise<tl.TypeInputPeer | null> {
   if (ctx.deny.isMarked(marked)) return null
+  if (ctx.peerOverride && marked === -1_000_000_000_000 - ctx.peerOverride.channelId) return ctx.peerOverride
   return ctx.tg.storage.peers.getById(marked, false)
 }
 
 async function probeBasicGroup(ctx: Ctx, rawId: number): Promise<Membership> {
   const res = (await ctx.tg.call({ _: 'messages.getFullChat', chatId: rawId })) as unknown as FullChatProbe
+  if (res.migration) ctx.onMigration?.({ _: 'inputPeerChannel', channelId: res.migration.channelId, accessHash: Long.fromString(res.migration.accessHash) })
   if (res.status === 'unknown') ctx.onVerificationFailure?.(res.unavailableReason ?? 'member_list_unavailable')
   return res.status
 }

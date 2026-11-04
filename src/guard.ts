@@ -74,6 +74,7 @@ export interface FullChatProbe {
   status: 'clean' | 'denied' | 'unknown'
   memberIds?: number[]
   unavailableReason?: string
+  migration?: { channelId: number; accessHash: string }
 }
 export interface ParticipantProbe {
   _: 'tgi.participant'
@@ -163,14 +164,15 @@ function fullChatProbe(req: Record<string, unknown>, res: Record<string, unknown
   if (!participants || participants._ !== 'chatParticipants' || !Array.isArray(participants.participants)) {
     const chats = Array.isArray(res.chats) ? res.chats as Array<Record<string, unknown>> : []
     const chat = chats.find((item) => item.id === chatId)
-    const migrated = chat?.migratedTo as { channelId?: unknown } | undefined
+    const migrated = chat?.migratedTo as { channelId?: unknown; accessHash?: { toString(): string } } | undefined
     const unavailableReason = migrated ? 'group_migrated'
       : chat?.left ? 'account_left_group'
       : chat?._ === 'chatForbidden' ? 'group_forbidden'
       : participants?._ === 'chatParticipantsForbidden' ? 'member_list_restricted'
       : !full ? 'full_group_missing'
       : !participants ? 'member_list_missing' : 'member_list_format_unrecognized'
-    return { _: 'tgi.fullChat', status: 'unknown', unavailableReason }
+    return { _: 'tgi.fullChat', status: 'unknown', unavailableReason,
+      ...(typeof migrated?.channelId === 'number' && migrated.accessHash ? { migration: { channelId: migrated.channelId, accessHash: migrated.accessHash.toString() } } : {}) }
   }
   const hit = participants.participants.some((p) => {
     const uid = (p as { userId?: unknown }).userId

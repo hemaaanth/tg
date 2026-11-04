@@ -46,6 +46,7 @@ export interface FakeChat {
   broadcast?: boolean
   members: number[]
   hiddenMembers?: boolean
+  migratedTo?: number
 }
 
 export interface FakeMessage {
@@ -402,6 +403,12 @@ export class FakeTelegram {
     const marked = -(req.chatId as number)
     const c = this.chats.get(marked)
     if (!c || c.kind !== 'chat') return rpcError('CHAT_ID_INVALID')
+    if (c.migratedTo) {
+      const target = this.chats.get(markChannel(c.migratedTo))!
+      return { _: 'messages.chatFull', fullChat: { _: 'chatFull', id: c.id,
+        participants: { _: 'chatParticipantsForbidden', chatId: c.id }, about: '', notifySettings: { _: 'peerNotifySettings' } },
+        chats: [{ ...this.tlChat(marked), migratedTo: { _: 'inputChannel', channelId: target.id, accessHash: target.hash } }], users: [] }
+    }
     return {
       _: 'messages.chatFull',
       fullChat: {

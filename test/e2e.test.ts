@@ -904,6 +904,22 @@ describe('admin', () => {
     expect(sessionRows(env.paths.sessionFile).peers).not.toContain(DENIED)
   })
 
+  it.each([[CLEAN_SUPER, 'clean'], [DENIED_SUPER, 'denied']] as const)('verifies a migration target before exposing it: %s', async (target, expected) => {
+    const env = await loggedInEnv()
+    env.fake.chats.get(markChat(CLEAN_GROUP))!.migratedTo = target
+    const r = await admin(env, [], 'refresh-chat', String(markChat(CLEAN_GROUP)))
+    const result = JSON.parse(r.out)
+    expect(result.verdict).toBe(expected)
+    if (expected === 'clean') {
+      expect(result.migratedChatId).toBe(String(markChannel(target)))
+      const read = await cli(env, 'read', String(markChannel(target)))
+      expect(read.code).toBe(0)
+    } else {
+      expect(result.migratedChatId).toBeUndefined()
+      expectNoCanary(r.out)
+    }
+  })
+
   it('refreshes inconclusive membership without reading messages', async () => {
     const env = await loggedInEnv()
     const result = await admin(env, [], 'refresh-chat', String(markChat(CLEAN_GROUP)))

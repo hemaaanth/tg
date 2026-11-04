@@ -10,7 +10,8 @@ import { SERVICE_USER_ID, markedFromPeer, parseChatIdArg } from './ids.js'
 import { InstanceLock } from './lock.js'
 import type { LogSink } from './logging.js'
 import { StateStore } from './state.js'
-import { verifyChat } from './verify.js'
+import { verifyChat, type Ctx } from './verify.js'
+import { runChats } from './browse.js'
 
 // Admin verbs. These are NOT covered by the sudoers rule. Root runs them
 // through the tg-admin wrapper, which drops to the tg user.
@@ -233,7 +234,7 @@ export async function runAdmin(argv: string[], deps: AdminDeps): Promise<number>
     }
     case 'refresh-chat': {
       const marked = positional.length === 1 ? parseChatIdArg(positional[0]) : null
-      if (marked === null || flags.size) throw new ToolError('bad_args')
+      if (marked === null || [...flags.keys()].some((key) => key !== 'note')) throw new ToolError('bad_args')
       const { config, denylist } = loadEnvironment(deps.paths, deps.trust, true)
       const state = new StateStore(deps.paths.stateFile)
       const deny = new DenySet(denylist, state.data.deniedChats)
@@ -245,12 +246,28 @@ export async function runAdmin(argv: string[], deps: AdminDeps): Promise<number>
       let session: Awaited<ReturnType<typeof openSession>> | undefined
       try {
         session = await openSession({ paths: deps.paths, config: { ...config, readOnly: true, allowSend: false }, deny, state,
-          mode: 'read', logSink: deps.logSink, logLevel: deps.logLevel, flood: deps.flood, fakeTelegram: deps.fakeTelegram })
+          mode: 'chats', logSink: deps.logSink, logLevel: deps.logLevel, flood: deps.flood, fakeTelegram: deps.fakeTelegram })
         if (session.selfId === null) throw new ToolError('not_logged_in')
         let detail: string | null = null
-        const verdict = await verifyChat({ tg: session.tg, selfId: session.selfId, config, denylist, deny, state,
-          now: Date.now, onVerificationFailure: (reason) => { detail = reason } }, marked, { fresh: true, allowVouch: false })
-        write(JSON.stringify({ chatId: String(marked), verdict, detail }) + '\n')
+        let migration: tl.RawInputPeerChannel | null = null
+        const ctx: Ctx = { tg: session.tg, selfId: session.selfId, config, denylist, deny, state,
+          now: Date.now, onVerificationFailure: (reason) => { detail = reason }, onMigration: (peer) => { migration = peer } }
+        let verdict = await verifyChat(ctx, marked, { fresh: true, allowVouch: false })
+        let migratedChatId: string | undefined
+        if (migration) {
+          const peer = migration as tl.RawInputPeerChannel
+          const target = -1_000_000_000_000 - peer.channelId
+          detail = null
+          verdict = await verifyChat({ ...ctx, peerOverride: peer }, target, { fresh: true, allowVouch: false })
+          if (verdict === 'clean') {
+            // Use ordinary guarded discovery, including its history checks, before exposing the new ID.
+            const note = flags.get('note')
+            const chats = await runChats(ctx, 'all', typeof note === 'string' ? note : undefined, 100)
+            if (chats.items.some((item) => item.chatId === String(target))) migratedChatId = String(target)
+            else { verdict = 'unknown'; detail = 'migration_discovery_incomplete' }
+          }
+        }
+        write(JSON.stringify({ chatId: String(marked), verdict, detail, ...(migratedChatId ? { migratedChatId } : {}) }) + '\n')
       } finally { try { await session?.close() } finally { lock.release() } }
       return 0
     }
